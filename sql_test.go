@@ -2,23 +2,24 @@ package golangdatabase
 
 import (
 	"context"
+	"database/sql"
 	"fmt"
 	"testing"
 	"time"
 )
 
-// func TestExecSql(t *testing.T) {
-// 	db := GetConnecttion()
-// 	defer db.Close()
+func TestExecSql(t *testing.T) {
+	db := GetConnecttion()
+	defer db.Close()
 
-// 	ctx := context.Background()
-// 	script := "insert into customer(id,name)values('10','gatau males')"
-// 	_, err := db.ExecContext(ctx, script) // function exec context tdk mengembalikan nilai
-// 	if err != nil {
-// 		panic(err)
-// 	}
-// 	fmt.Println("success insert new customer")
-// }
+	ctx := context.Background()
+	script := "insert into customer(id,name)values('10','gatau males')"
+	_, err := db.ExecContext(ctx, script) // function exec context tdk mengembalikan nilai
+	if err != nil {
+		panic(err)
+	}
+	fmt.Println("success insert new customer")
+}
 
 func TestQuerySql(t *testing.T) {
 	db := GetConnecttion()
@@ -30,6 +31,7 @@ func TestQuerySql(t *testing.T) {
 	if err != nil {
 		panic(err)
 	}
+	defer rows.Close()
 
 	for rows.Next() {
 		var id, name string
@@ -41,7 +43,6 @@ func TestQuerySql(t *testing.T) {
 		fmt.Println("Name :", name)
 	}
 
-	defer rows.Close()
 }
 
 func TestInsertSql(t *testing.T) {
@@ -49,7 +50,7 @@ func TestInsertSql(t *testing.T) {
 	defer db.Close()
 
 	ctx := context.Background()
-	script := "insert into customer(id,name,email,balance,rating,birth_date,married)values('2','gunawan','gunawan@gmail.com',9000,9.5,'1995-05-22',true)"
+	script := "insert into customer(id,name,email,balance,rating,birth_date,married)values('1','rizky','rizky@gmail.com' ,9000,9.5,'1997-03-22' ,true)"
 	_, err := db.ExecContext(ctx, script) // function exec context tdk mengembalikan nilai
 	if err != nil {
 		panic(err)
@@ -68,11 +69,15 @@ func TestQuerySqlComplex(t *testing.T) {
 		panic(err)
 	}
 
+	defer rows.Close()
+
 	for rows.Next() {
-		var id, name, email string
+		var id, name string
+		var email sql.NullString // data yg bisa null
 		var balance int32
 		var rating float64
-		var birthDate, createdAt time.Time
+		var birthDate sql.NullTime
+		var createdAt time.Time
 		var married bool
 		err = rows.Scan(&id, &name, &email, &balance, &rating, &birthDate, &createdAt, &married)
 		if err != nil {
@@ -81,13 +86,89 @@ func TestQuerySqlComplex(t *testing.T) {
 		fmt.Println("===============")
 		fmt.Println("Id :", id)
 		fmt.Println("Name :", name)
-		fmt.Println("email :", email)
+		if email.Valid {
+			fmt.Println("email :", email.String)
+		}
+
 		fmt.Println("balance :", balance)
 		fmt.Println("rating :", rating)
-		fmt.Println("birth_date :", birthDate)
+		if birthDate.Valid {
+			fmt.Println("birth_date :", birthDate.Time)
+		}
 		fmt.Println("created_at :", createdAt)
 		fmt.Println("married :", married)
 	}
 
+}
+
+func TestSqlInjection(t *testing.T) {
+	db := GetConnecttion()
+	defer db.Close()
+
+	ctx := context.Background()
+
+	//username := "admin'; #"
+	//password := "salah"
+	username := "admin"
+	password := "admin"
+
+	script := "SELECT username FROM user WHERE username = '" + username + "' AND password = '" + password + "' LIMIT 1"
+	rows, err := db.QueryContext(ctx, script)
+	if err != nil {
+		panic(err)
+	}
 	defer rows.Close()
+	if rows.Next() {
+		var username string
+		err := rows.Scan(&username)
+		if err != nil {
+			panic(err)
+		}
+		fmt.Println("succes login", username)
+	} else {
+		fmt.Println("gagal login")
+	}
+}
+
+func TestSqlInjectionSafe(t *testing.T) {
+	db := GetConnecttion()
+	defer db.Close()
+
+	ctx := context.Background()
+
+	username := "admin'; #"
+	password := "salah"
+
+	script := "SELECT username FROM user WHERE username = ? AND password = ? LIMIT 1"
+	rows, err := db.QueryContext(ctx, script, username, password)
+	if err != nil {
+		panic(err)
+	}
+	defer rows.Close()
+	if rows.Next() {
+		var username string
+		err := rows.Scan(&username)
+		if err != nil {
+			panic(err)
+		}
+		fmt.Println("succes login", username)
+	} else {
+		fmt.Println("gagal login")
+	}
+}
+
+func TestExecSqlParameter(t *testing.T) {
+	db := GetConnecttion()
+	defer db.Close()
+
+	username := "wahyu'; DROP TABLE USER; #"
+	password := "wahyu"
+
+	ctx := context.Background()
+	script := "INSERT INTO user (username,password) VALUES (?,?)"
+	_, err := db.ExecContext(ctx, script, username, password) // function exec context tdk mengembalikan nilai
+	if err != nil {
+		panic(err)
+	}
+	fmt.Println("success insert new user")
 }
