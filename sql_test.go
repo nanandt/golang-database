@@ -172,3 +172,52 @@ func TestExecSqlParameter(t *testing.T) {
 	}
 	fmt.Println("success insert new user")
 }
+
+func TestAutoIncrement(t *testing.T) {
+	db := GetConnecttion()
+	defer db.Close()
+
+	email := "wahyu2@gmail.com"
+	comment := "test ke dua"
+
+	ctx := context.Background()
+	script := "INSERT INTO comments (email,comment) VALUES (?,?)"
+	result, err := db.ExecContext(ctx, script, email, comment)
+	if err != nil {
+		panic(err)
+	}
+	id, err := result.LastInsertId()
+	if err != nil {
+		panic(err)
+	}
+
+	fmt.Println("Last Insert ID : ", id)
+}
+
+func TestQueryAutoIncrement(t *testing.T) {
+	db := GetConnecttion()
+	defer db.Close()
+
+	ctx := context.Background()
+	script := "SELECT id,email,comment FROM comments"
+	rows, err := db.QueryContext(ctx, script)
+	if err != nil {
+		panic(err)
+	}
+
+	defer rows.Close()
+
+	for rows.Next() {
+		var id int
+		var email, comment string
+		err = rows.Scan(&id, &email, &comment)
+		if err != nil {
+			panic(err)
+		}
+		fmt.Println("===============")
+		fmt.Println("Id :", id)
+		fmt.Println("Email :", email)
+		fmt.Println("Comment :", comment)
+	}
+
+}
