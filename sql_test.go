@@ -4,16 +4,17 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"strconv"
 	"testing"
 	"time"
 )
 
-func TestExecSql(t *testing.T) {
+func TestExecSqlAja(t *testing.T) {
 	db := GetConnecttion()
 	defer db.Close()
 
 	ctx := context.Background()
-	script := "insert into customer(id,name)values('10','gatau males')"
+	script := "insert into customer(id,name)values('3','dimas subekti')"
 	_, err := db.ExecContext(ctx, script) // function exec context tdk mengembalikan nilai
 	if err != nil {
 		panic(err)
@@ -178,7 +179,7 @@ func TestAutoIncrement(t *testing.T) {
 	defer db.Close()
 
 	email := "wahyu2@gmail.com"
-	comment := "test ke dua"
+	comment := "test ke DUA"
 
 	ctx := context.Background()
 	script := "INSERT INTO comments (email,comment) VALUES (?,?)"
@@ -219,5 +220,63 @@ func TestQueryAutoIncrement(t *testing.T) {
 		fmt.Println("Email :", email)
 		fmt.Println("Comment :", comment)
 	}
+}
 
+func TestPrepareStatement(t *testing.T) {
+	db := GetConnecttion()
+	defer db.Close()
+
+	ctx := context.Background()
+	script := "INSERT INTO comments (email,comment) VALUES (?,?)"
+	stmt, err := db.PrepareContext(ctx, script)
+	if err != nil {
+		panic(err)
+	}
+	defer stmt.Close()
+
+	for i := 0; i < 30; i++ {
+		email := "rizky" + strconv.Itoa(i) + "@gmail.com"
+		comment := "Komentar ke " + strconv.Itoa(i)
+		execContext, err := stmt.ExecContext(ctx, email, comment)
+		if err != nil {
+			panic(err)
+		}
+		insertId, err := execContext.LastInsertId()
+		if err != nil {
+			panic(err)
+		}
+		fmt.Println("Comment Id ", insertId)
+	}
+}
+
+func TestTransaction(t *testing.T) {
+	db := GetConnecttion()
+	defer db.Close()
+
+	ctx := context.Background()
+	tx, err := db.Begin()
+	if err != nil {
+		panic(err)
+	}
+
+	// do transaction
+	script := "INSERT INTO comments (email,comment) VALUES (?,?)"
+	for i := 0; i < 10; i++ {
+		email := "rizky" + strconv.Itoa(i) + "@gmail.com"
+		comment := "Komentar ke " + strconv.Itoa(i)
+		execContext, err := tx.ExecContext(ctx, script, email, comment)
+		if err != nil {
+			panic(err)
+		}
+		insertId, err := execContext.LastInsertId()
+		if err != nil {
+			panic(err)
+		}
+		fmt.Println("Comment Id ", insertId)
+	}
+
+	err = tx.Rollback()
+	if err != nil {
+		panic(err)
+	}
 }
